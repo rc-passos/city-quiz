@@ -155,7 +155,7 @@ export default function CitySnap() {
   const [score, setScore] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
-  const [imgError, setImgError] = useState(false)
+  const [imgError, setImgError] = useState<string | null>(null)
   const [loadingSecs, setLoadingSecs] = useState(0)
   const [scores, setScores] = useState<ScoreEntry[]>([])
   const [lbFilter, setLbFilter] = useState<Difficulty | 'all'>('all')
@@ -166,17 +166,17 @@ export default function CitySnap() {
   useEffect(() => {
     if (screen !== 'playing' || questions.length === 0) return
     setImgSrc(null)
-    setImgError(false)
+    setImgError(null)
     setLoadingSecs(0)
 
     fetchImage(questions[qIndex].prompt)
       .then(src => setImgSrc(src))
-      .catch(() => setImgError(true))
+      .catch(e => setImgError(String(e)))
   }, [screen, qIndex, questions])
 
   // Loading timer
   useEffect(() => {
-    if (screen !== 'playing' || imgSrc || imgError) return
+    if (screen !== 'playing' || imgSrc || imgError !== null) return
     const interval = setInterval(() => setLoadingSecs(s => s + 1), 1000)
     return () => clearInterval(interval)
   }, [screen, qIndex, imgSrc, imgError])
@@ -189,7 +189,7 @@ export default function CitySnap() {
     setScore(0)
     setSelected(null)
     setImgSrc(null)
-    setImgError(false)
+    setImgError(null)
     setLoadingSecs(0)
     setSaved(false)
     setScreen('playing')
@@ -330,25 +330,25 @@ export default function CitySnap() {
 
         <div className="flex-1 flex flex-col max-w-xl mx-auto w-full p-4 gap-4">
           <div className="rounded-2xl overflow-hidden bg-white/5 aspect-video relative border border-white/5">
-            {!imgSrc && !imgError && (
+            {!imgSrc && imgError === null && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
                 <div className="text-5xl animate-pulse">🌆</div>
                 <p className="text-gray-400 text-sm font-medium">AI is generating the image...</p>
                 <p className="text-gray-700 text-xs">{loadingSecs}s — first image can take up to 30s</p>
               </div>
             )}
-            {imgError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+            {imgError !== null && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 p-4">
                 <div className="text-4xl">⚠️</div>
-                <p className="text-gray-500 text-sm">Image failed to load</p>
+                <p className="text-gray-500 text-sm text-center break-all">{imgError}</p>
                 <button
                   onClick={() => {
-                    setImgError(false)
+                    setImgError(null)
                     setImgSrc(null)
                     setLoadingSecs(0)
                     fetchImage(questions[qIndex].prompt)
                       .then(src => setImgSrc(src))
-                      .catch(() => setImgError(true))
+                      .catch(e => setImgError(String(e)))
                   }}
                   className="text-blue-400 text-xs underline"
                 >

@@ -37,13 +37,12 @@ export async function GET(req: NextRequest) {
     const errText = await res.text()
     console.error(`HF attempt ${attempt + 1} failed: status=${res.status} body=${errText}`)
 
-    // Model loading — wait and retry
     if (res.status === 503) {
       await new Promise(r => setTimeout(r, 8000))
       continue
     }
 
-    return NextResponse.json({ error: errText }, { status: res.status })
+    return NextResponse.json({ error: `status=${res.status} ${errText}` }, { status: res.status })
   }
 
   return NextResponse.json({ error: 'Model unavailable after retries' }, { status: 503 })
