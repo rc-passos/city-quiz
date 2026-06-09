@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const maxDuration = 60
+
 export async function GET(req: NextRequest) {
   const prompt = req.nextUrl.searchParams.get('prompt')
   if (!prompt) return NextResponse.json({ error: 'No prompt' }, { status: 400 })
@@ -7,48 +9,51 @@ export async function GET(req: NextRequest) {
   const token = process.env.HF_TOKEN
   if (!token) return NextResponse.json({ error: 'HF_TOKEN missing' }, { status: 500 })
 
-  try {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const res = await fetch(
-        'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: prompt,
-            parameters: { num_inference_steps: 4 },
-          }),
+  const models = [
+    'stabilityai/stable-diffusion-xl-base-1.0',
+    'runwayml/stable-diffusion-v1-5',
+  ]
+
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(
+          `https://api-inference.huggingface.co/models/${model}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ inputs: prompt }),
+          }
+        )
+
+        if (res.ok) {
+          const buffer = await res.arrayBuffer()
+          return new NextResponse(buffer, {
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'Cache-Control': 'public, max-age=86400',
+            },
+          })
         }
-      )
 
-      if (res.ok) {
-        const buffer = await res.arrayBuffer()
-        return new NextResponse(buffer, {
-          headers: {
-            'Content-Type': 'image/jpeg',
-            'Cache-Control': 'public, max-age=86400',
-          },
-        })
+        const errText = await res.text()
+
+        if (res.status === 503) {
+          await new Promise(r => setTimeout(r, 10000))
+          continue
+        }
+
+        // Try next model on non-503 errors
+        break
+      } catch (e) {
+        if (attempt === 1) break
+        await new Promise(r => setTimeout(r, 3000))
       }
-
-      const errText = await res.text()
-
-      if (res.status === 503) {
-        await new Promise(r => setTimeout(r, 8000))
-        continue
-      }
-
-      return NextResponse.json(
-        { error: `HF status=${res.status}: ${errText}` },
-        { status: 500 }
-      )
     }
-
-    return NextResponse.json({ error: 'Model still loading after retries' }, { status: 500 })
-  } catch (e) {
-    return NextResponse.json({ error: `Exception: ${String(e)}` }, { status: 500 })
   }
+
+  return NextResponse.json({ error: 'All models failed' }, { status: 500 })
 }
