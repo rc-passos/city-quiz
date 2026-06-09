@@ -132,7 +132,8 @@ async function fetchImage(prompt: string): Promise<string> {
       continue
     }
 
-    throw new Error(`API error ${res.status}`)
+    const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    throw new Error(json.error || `HTTP ${res.status}`)
   }
 
   throw new Error('Failed after retries')
