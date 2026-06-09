@@ -20,7 +20,6 @@ interface City {
 interface Question {
   city: City
   options: City[]
-  prompt: string
 }
 
 interface ScoreEntry {
@@ -96,14 +95,6 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-function makePrompt(city: City, difficulty: Difficulty): string {
-  if (difficulty === 'easy')
-    return `famous landmarks and skyline of ${city.name} ${city.country}, aerial view, iconic, cinematic photography, high quality`
-  if (difficulty === 'medium')
-    return `city architecture and streets of ${city.name} ${city.country}, urban photography, beautiful cityscape, high quality`
-  return `street level local neighborhood in ${city.name} ${city.country}, candid urban photography, no obvious famous landmarks`
-}
-
 function buildQuestions(difficulty: Difficulty): Question[] {
   const pool = getCityPool(difficulty)
   const selected = shuffle(pool).slice(0, 10)
@@ -113,9 +104,20 @@ function buildQuestions(difficulty: Difficulty): Question[] {
     return {
       city,
       options: shuffle([city, ...wrong]),
-      prompt: makePrompt(city, difficulty),
     }
   })
+}
+
+async function fetchImage(cityName: string): Promise<string> {
+  const res = await fetch(
+    `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(cityName)}&prop=pageimages&format=json&pithumbsize=1000&origin=*`
+  )
+  const data = await res.json()
+  const pages = data?.query?.pages
+  const page = pages?.[Object.keys(pages)[0]]
+  const src = page?.thumbnail?.source
+  if (!src) throw new Error(`No image found for ${cityName}`)
+  return src
 }
 
 async function fetchImage(prompt: string): Promise<string> {
@@ -171,7 +173,7 @@ export default function CitySnap() {
     setImgError(null)
     setLoadingSecs(0)
 
-    fetchImage(questions[qIndex].prompt)
+    fetchImage(questions[qIndex].city.name)
       .then(src => setImgSrc(src))
       .catch(e => setImgError(String(e)))
   }, [screen, qIndex, questions])
@@ -247,7 +249,7 @@ export default function CitySnap() {
         <div className="text-center mb-10">
           <div className="text-7xl mb-4">🌆</div>
           <h1 className="text-5xl font-bold tracking-tight">CitySnap</h1>
-          <p className="text-gray-500 mt-2 text-sm">Guess the city from AI-generated images</p>
+          <p className="text-gray-500 mt-2 text-sm">Guess the city from the photo</p>
         </div>
 
         <div className="space-y-4">
@@ -335,8 +337,8 @@ export default function CitySnap() {
             {!imgSrc && imgError === null && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
                 <div className="text-5xl animate-pulse">🌆</div>
-                <p className="text-gray-400 text-sm font-medium">AI is generating the image...</p>
-                <p className="text-gray-700 text-xs">{loadingSecs}s — first image can take up to 30s</p>
+                <p className="text-gray-400 text-sm font-medium">Loading image...</p>
+                <p className="text-gray-700 text-xs">{loadingSecs}s</p>
               </div>
             )}
             {imgError !== null && (
@@ -348,7 +350,7 @@ export default function CitySnap() {
                     setImgError(null)
                     setImgSrc(null)
                     setLoadingSecs(0)
-                    fetchImage(questions[qIndex].prompt)
+                    fetchImage(questions[qIndex].city.name)
                       .then(src => setImgSrc(src))
                       .catch(e => setImgError(String(e)))
                   }}
