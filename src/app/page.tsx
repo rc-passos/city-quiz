@@ -133,7 +133,8 @@ async function fetchImage(prompt: string): Promise<string> {
     }
 
     const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new Error(json.error || `HTTP ${res.status}`)
+    const msg = json.cause ? `${json.error} (${json.cause})` : json.error
+    throw new Error(msg || `HTTP ${res.status}`)
   }
 
   throw new Error('Failed after retries')
