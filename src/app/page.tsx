@@ -120,28 +120,6 @@ async function fetchImage(cityName: string): Promise<string> {
   return src
 }
 
-async function fetchImage(prompt: string): Promise<string> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`/api/image?prompt=${encodeURIComponent(prompt)}`)
-
-    if (res.ok) {
-      const blob = await res.blob()
-      return URL.createObjectURL(blob)
-    }
-
-    if (res.status === 503) {
-      await new Promise(r => setTimeout(r, 8000))
-      continue
-    }
-
-    const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    const msg = json.cause ? `${json.error} (${json.cause})` : json.error
-    throw new Error(msg || `HTTP ${res.status}`)
-  }
-
-  throw new Error('Failed after retries')
-}
-
 function getScoreLabel(score: number) {
   if (score === 100) return { emoji: '🏆', msg: "Perfect score! You're a geography legend." }
   if (score >= 80) return { emoji: '🌍', msg: 'Geography master! Seriously impressive.' }

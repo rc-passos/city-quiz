@@ -19,7 +19,6 @@ export async function GET(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ inputs: prompt }),
-        // @ts-expect-error - Node 18 fetch option
         signal: AbortSignal.timeout(50000),
       }
     )
